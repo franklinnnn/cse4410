@@ -1,0 +1,201 @@
+Microgame #2 Breakout Game
+Franklin Assa
+003068831
+
+Create new 2D Core project
+Create folders under Assets (Scripts, Sprites, Prefabs), rename scene to Level 01
+Create Background object using downloaded image
+Create Wall game objects (Top, Right, Bottom, Left), attach Box Collider 2D to walls
+Create player game object as Paddle,  attach Box Collider 2D and Rigidbody 2D, with the following properties:
+
+
+Set layer order of Bottom Wall to -1 and Background to -2
+Create script file for the player, PlayerController.cs, attach script file to Paddle.
+Save Paddle as a prefab and change tag to “Player”
+
+Write script for player controls
+  public class PlayerController : MonoBehaviour
+  {
+      Rigidbody2D rb2dPlayer;
+      float input;
+      public float speed;
+      // Start is called before the first frame update
+      void Start()
+      {
+          rb2dPlayer = GetComponent<Rigidbody2D>();
+      }
+
+      // Update is called once per frame
+      void Update()
+      {
+          input = Input.GetAxis("Horizontal");
+          rb2dPlayer.AddForce(Vector2.right * input * speed * Time.deltaTime);
+      }
+  }
+
+Create Ball game object, attach Circle Collider 2D and Rigidbody 2D components, with the following properties:
+ 
+
+Create Bounce physics material, with friction 0 and bounciness 1, attach material to Circle Collider 2D
+Create script, BallController.cs, attach to Ball game object
+  public class BallController : MonoBehaviour
+  {
+
+      Rigidbody2D rb2dBall;
+      public float speed;
+      public float randomUp;
+
+      Vector3 startPosition;
+
+      GameController cont;
+
+      // Start is called before the first frame update
+      void Start()
+      {
+          rb2dBall = GetComponent<Rigidbody2D>();
+          startPosition = transform.position;
+          cont = FindObjectOfType<GameController>();
+      }
+
+      private void OnEnable()
+      {
+          Invoke("PushBall", 1f);
+      }
+
+Create function to move the ball a random direction upon starting, and change velocity when the ball bounces from the paddle
+  void PushBall()
+      {
+          int direction = Random.Range(0, 2); // random integer from 0 to 1
+          float x;
+          if(direction == 0) // go right/up
+          {
+              x = speed;
+          }
+          else
+          {
+              x = -speed; // go left/down
+          }
+
+          rb2dBall.AddForce(new Vector2(x, -randomUp));
+      }
+  private void OnCollisionEnter2D(Collision2D collision)
+      {
+          if(collision.gameObject.CompareTag("Player"))
+          {
+              Vector2 velocity;
+              velocity.y = rb2dBall.velocity.y;
+              velocity.x = (rb2dBall.velocity.x / 2) + (collision.collider.attachedRigidbody.velocity.x / 3);
+              rb2dBall.velocity = velocity;
+          }
+      }
+
+Create function to trigger when the ball passes the paddle and collides with the bottom wall
+  private void OnTriggerEnter2D(Collider2D collision)
+      {
+          if(collision.gameObject.CompareTag("Goal"))
+          {
+              cont.LoseLife();
+              rb2dBall.velocity = Vector2.zero;
+              transform.position = startPosition;
+              Invoke("PushBall", 2f);
+          }
+      }
+
+Create Brick game object, create new and set tag to “Brick”, and save Brick as a prefab
+In BallController.cs create condition to destroy a brick when the ball collides with it
+  if(collision.gameObject.CompareTag("Brick"))
+          {
+              cont.HitBrick();
+              Destroy(collision.gameObject);
+          }
+
+Duplicate bricks (Ctrl+D) and position the duplicates across the scene
+Create new text objects, LIVES and BRICKS to display number of player lives and bricks
+Create new empty object GameController and script GameController.cs, attach script to object
+Create new Image and Text objects to display the Game Over UI, and Level Cleared UI, uncheck visibility for both
+
+In GameController.cs, define game starting states and functions
+public class GameController : MonoBehaviour
+  {
+
+      public int lives = 3;
+      [SerializeField]
+      private Text livesText;
+
+      int numOfBricks;
+      [SerializeField]
+      private Text bricksText;
+
+      public GameObject gameOverUI;
+      bool gameOver;
+
+      public GameObject levelClearedUI;
+
+      // Start is called before the first frame update
+      void Start()
+      {
+          livesText.text = "LIVES " + lives.ToString();
+          numOfBricks = GameObject.FindGameObjectsWithTag("Brick").Length;
+          bricksText.text = numOfBricks.ToString() + " BRICKS";
+          gameOver = false;
+      }
+
+      // Update is called once per frame
+      void Update()
+      {
+          if(gameOver && Input.anyKeyDown)
+          {
+              Restart();
+          }
+      }
+  }
+
+LoseLife function decrements the number of lives displayed on the Text UI when the ball passes the paddle and collides with the bottom wall, called in BallController.cs. When the number of lives reaches 0, the GameOver function is called
+  public void LoseLife() // decrement number of lives
+      {
+          lives--;
+          livesText.text = "LIVES " + lives.ToString();
+          if(lives == 0)
+          {
+              GameOver();
+          }
+      }
+
+HitBrick function decrements the number of bricks displayed on the Text UI when the Ball collides with a Brick. When the number of bricks reaches 0, Level Cleared UI is displayed, and the NextLevel function is invoked
+  public void HitBrick() // decrement number of bricks
+      {
+          numOfBricks--;
+          bricksText.text = numOfBricks.ToString() + " BRICKS";
+          if(numOfBricks <=0)
+          {
+              levelClearedUI.SetActive(true);
+              Invoke("NextLevel", 2f);
+          }
+      }
+
+GameOver function ends the game and Game Over UI is displayed. The option to restart the game is displayed. The Restart function reloads the level scene.
+    void GameOver()
+      {
+          gameOver = true;
+          gameOverUI.SetActive(true);
+          Time.timeScale = 0f;
+      }
+
+      void Restart()
+      {
+          SceneManager.LoadScene("Level 01");
+          Time.timeScale = 1f;
+      }
+
+NextLevel function invokes the next level after clearing all the bricks, invoked in HitBrick function
+  void NextLevel()
+      {
+          SceneManager.LoadScene("Level 02");
+      }
+
+
+Drag and drop the UI objects, LIVES, BRICKS, Game Over UI and Level Cleared UI to the corresponding fields in GameController
+
+
+Create second level by duplicating the scene, renaming it to Level 02
+Rearrange bricks and adjust speed values, paddle size to increase difficulty
