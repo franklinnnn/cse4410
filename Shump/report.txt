@@ -1,0 +1,479 @@
+Microgame #3 Shump Game
+Franklin Assa
+003068831
+Project setup
+Create new 2D project
+Create folders (Sprites, Scripts, Prefabs, Animations)
+Extract Sprites.zip to Sprites folder
+Create tilemap for background
+Change tiles sprite to the following properties:
+
+In Sprite Editor, select square tile and click apply
+
+In Sprites folder, open tiles sprite to access extracted tile
+Create new rectangular Tilemap 2D Object, rename to Background, change Order in Layer to -1
+Create new Tiles folder under Assets
+In Tile Palette window, create new palette, save under Tiles folder
+Drag and drop extracted tile sprite to newly created palette, save under Tiles folder
+Create tilemap background with tile in Tile Palette
+Add player
+Place player sprite from Sprites folder into Hierarchy, rename object to Player, position and scale
+Add Box Collider 2D and edit collider size to fit player sprite, add Rigidbody 2D with the following properties:
+
+Create script file PlayerController.cs, attach script file to Player object
+Script for player movement
+public float speed;
+    Vector2 input;
+    Rigidbody2D rb2dPlayer;
+ 
+// Start is called before the first frame update
+    void Start()
+    {
+        rb2dPlayer = GetComponent<Rigidbody2D>();
+    }
+ 
+  void Update()
+    {
+        input = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical"));
+        rb2dPlayer.AddForce(input * speed * Time.deltaTime);
+    }
+Add bullet
+Create two empty game objects under Player object, BulletSpawnLeft and BulletSpawnRight
+Position bullet spawn objects to left and right positions of player sprite
+Place bullet sprite onto Hierarchy, rename to BulletPlayer
+Attach Circle Collider 2D and edit collider size to match bullet size, attach Rigidbody 2D with the following properties:
+
+Create BulletController.cs script, attach to BulletPlayer object
+Save bullet object as prefab
+Create shooting functionality
+In PlayerController.cs, write script for function
+[Header("Shooting")]
+    public GameObject bullet;
+    public GameObject[] bulletSpawnPositions;
+    private float coolDown;
+    public float timeBetweenShots;
+Define variables
+coolDown = timeBetweenShots;
+Cooldown time initialized in Start function
+void Shoot()
+    {
+        for(int i = 0; i < bulletSpawnPositions.Length; i++)
+        {
+            Instantiate(bullet, bulletSpawnPositions[i].transform.position, Quaternion.identity);
+        }
+        Instantiate(flash, transform.position, Quaternion.identity);
+ 
+        coolDown = timeBetweenShots;
+    }
+Shoot function will be called in the Update function when Space is keyed and cooldown reset
+        if(Input.GetKey(KeyCode.Space) && coolDown <= 0)
+        {  
+            Shoot();
+        }
+if(coolDown > 0)
+        {
+            coolDown -= Time.deltaTime;
+        }
+
+In Player object, initialize bullet spawn position elements to BulletSpawnLeft and BulletSpawnRight
+
+Add force to the bullet in BulletController.cs, write script for player bullet
+public class BulletController : MonoBehaviour
+{
+   
+    Rigidbody2D rb2dBullet;
+    public float speed;
+    int damage = 1;
+   
+    // Start is called before the first frame update
+    void Awake()
+    {
+        rb2dBullet = GetComponent<Rigidbody2D>();
+    }
+ 
+    void OnEnable()
+    {
+        rb2dBullet.AddForce(Vector2.up * speed);
+        Invoke("Disable", 5f);
+    }
+ 
+    void Disable()
+    {
+        Destroy(gameObject);
+    }
+}
+The bullet is destroyed after 5 seconds
+Add enemies
+Place enemy sprite to Hierarchy, tag as “Enemy”, and rename to Enemy 1 with the following properties:
+
+Add Box Collider 2D, edit collider to size and Rigidbody 2D components with the following properties:
+
+Create script EnemyController.cs and attach to Enemy 1, save as a prefab
+Place prefab Enemy 1 to Hierarchy, unpack prefab, change enemy sprite and rename to Enemy 2, save second enemy as a prefab
+
+Define functions for enemy movement in EnemyController.cs
+    Rigidbody2D rb2dEnemy;
+    PlayerController player;
+    public float xSpeed, ySpeed;
+Define variables
+ void Start()
+    {
+        rb2dEnemy = GetComponent<Rigidbody2D>();
+        player = FindObjectOfType<PlayerController>();
+    }
+void Update()
+    {
+        float x = 0f;
+        if(player != null)
+        {
+            if(player.transform.position.x > transform.position.x) // enemy to left of player
+                x = xSpeed;
+            else if(player.transform.position.x < transform.position.x) // enemy to right of player
+                x = -xSpeed;
+        }
+        rb2dEnemy.AddForce(new Vector2(x, -ySpeed) * Time.deltaTime);
+ 
+    }
+Enemies will move towards player
+Create enemy shooting functionality
+Place Bullet prefab to Hierarchy, rename to BulletEnemy, unpack prefab and change sprite to enemy bullet sprite
+Create EnemyBulletController.cs script, remove BulletController.cs script from BulletEnemy object, and replace with EnemyBulletController.cs
+Save BulletEnemy object as prefab
+In EnemyController.cs, define bullet variables and attack functionality
+public GameObject bullet;
+    public float timeBetweenAttackLow = 0.5f;
+    public float timeBetweenAttackHigh = 2f;
+ 
+    float attackCoolDown;
+Define cooldown variables
+        attackCoolDown = Random.Range(timeBetweenAttackLow, timeBetweenAttackHigh);
+Cooldown initialized in Start function
+void Attack()
+    {
+        Instantiate(bullet, transform.position, transform.rotation);
+        attackCoolDown = Random.Range(timeBetweenAttackLow, timeBetweenAttackHigh);
+    }
+			Attack function is called in the Update function
+        if(attackCoolDown > 0)
+        {
+            attackCoolDown -= Time.deltaTime;
+        }
+        else
+        {
+            Attack();
+        }
+			Enemy attacks off cooldown
+Initialize bullet object and attack interval
+
+Create script for enemy bullets, same functionality as player bullets
+public class EnemyBulletController : MonoBehaviour
+{
+    Rigidbody2D rb2dBullet;
+    public float speed;
+    public int damage = 1;
+   
+    // Start is called before the first frame update
+    void Awake()
+    {
+        rb2dBullet = GetComponent<Rigidbody2D>();
+    }
+ 
+    void OnEnable()
+    {
+        rb2dBullet.AddForce(-Vector2.up * speed);
+        Invoke("Disable", 5f);
+    }
+ 
+    void Disable()
+    {
+        Destroy(gameObject);
+    }
+}
+Enemy bullets always move down
+Create functionality to spawn enemies
+Create empty game object GameController and script file GameController.cs, attach script file to object
+Write script for GameController.cs
+ public GameObject[] enemies;
+    public float timeBetweenSpawnLow = 0.5f;
+    public float timeBetweenSpawnHigh = 3f;
+ 
+    float spawnCoolDown;
+    Vector2 bounds;
+    Vector3 spawnPosition;
+Define variables for spawn cooldown and positions
+bounds = Camera.main.ScreenToWorldPoint(new Vector3(Screen.width, Screen.height, 0f));
+        spawnCoolDown = Random.Range(timeBetweenSpawnLow, timeBetweenSpawnHigh);
+Initialize camera bound positions and cooldown in the Start function
+    void SpawnEnemy()
+    {
+        spawnPosition = new Vector3(Random.Range(-bounds.x + 1f, bounds.x - 1f), (bounds.y + Random.Range(0.25f, 3f)), 0);
+        Instantiate(enemies[Random.Range(0, enemies.Length)], spawnPosition, Quaternion.Euler(0, 0, 180));
+        spawnCoolDown = Random.Range(timeBetweenSpawnLow, timeBetweenSpawnHigh);
+    }
+Function to spawn enemy, called in Update function
+if(spawnCoolDown > 0)
+        {
+            spawnCoolDown -= Time.deltaTime;
+        }
+        else
+        {
+            SpawnEnemy();
+        }
+Calling spawn function in the Update function
+Initialize enemies and spawn interval
+
+Create damage functionality for player and enemies
+In PlayerController.cs, add health
+ [Header("Health")]
+    public int maxHealth = 10;
+    public int health;
+Define variables
+        health = maxHealth;
+Initialize in Start function
+public void TakeDamage(int damage)
+    {
+       
+            health = health - damage;
+            if(health <= 0)
+            {
+                GameOver();
+            }
+    }
+Function to take damage will also call function for game over
+void OnCollisionEnter2D(Collision2D collision)
+    {
+        if(collision.gameObject.CompareTag("Enemy"))
+        {
+            TakeDamage(1);
+            Destroy(collision.gameObject);
+        }
+    }
+Collider function to take damage
+In EnemyBulletController.cs, add damage
+    public int damage = 1;
+Define variable
+void OnTriggerEnter2D(Collider2D collision)
+    {
+        if(collision.gameObject.CompareTag("Player"))
+        {
+            collision.gameObject.GetComponent<PlayerController>().TakeDamage(damage);
+            Invoke("Disable", 0.01f);
+        }
+    }
+Collider function to deal damage
+Initialize health in Player object
+
+In EnemyController.cs, add enemy health and damage functionality
+public int maxEnemyHealth;
+    int enemyHealth;
+Define variables
+        enemyHealth = maxEnemyHealth;
+Initialize in Start function
+public void TakeDamage(int damage)
+    {
+        enemyHealth -= damage;
+        if(enemyHealth <= 0)
+        {
+            Die();
+        }
+    }
+     void Die()
+     {
+        controller.AddScore(amount);
+        Instantiate(explosion, transform.position, Quaternion.Euler(0, 0, 0));
+        Destroy(gameObject);
+     }
+Enemy is destroyed after taking enough damage
+In BulletController.cs, add damage
+    int damage = 1;
+Define variable
+void OnTriggerEnter2D(Collider2D collision)
+    {
+        if(collision.gameObject.CompareTag("Enemy"))
+        {
+            collision.gameObject.GetComponent<EnemyController>().TakeDamage(damage);
+            Invoke("Disable", 0.01f);
+        }
+    }
+Collider function for player to deal damage to enemy
+void Disable()
+    {
+        Destroy(gameObject);
+    }
+Bullet is destroyed after colliding with enemy
+Build health count display for player
+Create new Canvas object, and empty game object under the canvas HealthParent
+Attach Rect Transform and Horizontal Layout Group to HealthParent object, size and position to fit game display
+
+Add Image UI under HealthParent, initialize source image to heart sprite
+In PlayerController.cs, define variables and functions to display health
+[Header("Health")]
+    public int maxHealth = 10;
+    public int health;
+    public GameObject healthImage;
+    public GameObject healthParent;
+Variables
+for(int i = 0; i < health - 1; i++)
+        {
+            AddHeart();
+        }
+Initialize function in Start function
+    void AddHeart()
+    {
+        GameObject heart = Instantiate(healthImage);
+        heart.transform.SetParent(healthParent.transform);
+    }
+ 
+    void RemoveHeart(int n)
+    {
+        if(healthParent.transform.childCount > 0)
+        {
+            if(healthParent.transform.childCount < n)
+            {
+                n = healthParent.transform.childCount;
+            }
+            for(int i = 0; i < n; i++)
+            {
+                Destroy(healthParent.transform.GetChild(0).gameObject);
+            }
+        }
+    }
+Function to display amount of player health, and decrementing when player takes damage
+RemoveHeart(damage);
+Remove heart function is called in TakeDamage function
+Initialize objects in health UI objects in Player
+
+Create score functionality and UI
+Add new Text UI ScoreText under Canvas
+In GameController.cs, define score functionality
+    public Text scoreText;
+    int scores;
+Variables
+    scores = 0;
+    scoreText.text = "SCORE: " + scores.ToString();
+Initialize in Start function
+public void AddScore(int amount)
+    {
+        scores += amount;
+       
+    }
+Function to increment score
+In EnemyController.cs, call AddScore function
+    GameController controller;
+    public int amount;
+Define reference
+    controller = FindObjectOfType<GameController>();
+Initialize in Start function
+void Die()
+     {
+        controller.AddScore(amount);
+        Destroy(gameObject);
+     }
+Score is added when enemy dies
+Initialize ScoreText in GameController and set enemy score amount in enemy prefabs
+In EnemyController.cs, define camera bounds and functionality
+    Vector2 bounds;
+
+        bounds = Camera.main.ScreenToWorldPoint(new Vector3(Screen.width, Screen.height, 0f));
+
+if(transform.position.y < -bounds.y)
+        {
+            controller.AddScore(-amount);
+            Destroy(gameObject);
+        }
+Player will lose score if enemy moves past player outside of camera bounds
+Create game over and level clear UI
+Add new Image UI GameOverUI and NextLevelUI and Text under both objects
+In GameController.cs, define and initialize game over variables
+    public int clearScore;    
+    public bool gameOver;
+    public GameObject gameOverUI;
+    public GameObject nextLevelUI;
+variables
+        gameOver = false;
+In Start function
+if(gameOver && Input.anyKeyDown)
+        {
+            Restart();
+        }
+if(scores >= clearScore)
+        {
+            nextLevelUI.SetActive(true);
+            Invoke("NextLevel", 2f);
+        }
+In Update function
+    void Restart()
+    {
+        SceneManager.LoadScene("Level 01");
+        Time.timeScale = 1f;
+    }
+   void NextLevel()
+    {
+        SceneManager.LoadScene("Level 02");
+        Time.timeScale = 2f;
+    }
+Function to restart and function to move to next level
+In PlayerController.cs, create game over function
+void GameOver()
+    {
+        FindObjectOfType<GameController>().gameOver = true;
+        FindObjectOfType<GameController>().gameOverUI.SetActive(true);
+        gameObject.SetActive(false);
+        Time.timeScale = 0f;
+    }
+Initialize GameOverUI and NextLevelUI in GameController object
+Add animations
+Adjust explosion sprite properties and slice frames in the sprite editor
+
+Select sliced sprites and add to Hierarchy, save under Animations folder and rename to Explosion 
+Create new script file ExplosionController.cs and attach to Explosion object
+public class ExplosionController : MonoBehaviour
+{
+    public AnimationClip clip;
+ 
+    void OnEnable()
+    {
+        Invoke("Disable", clip.length);
+    }
+ 
+    void Disable()
+    {
+        Destroy(gameObject);
+    }
+}
+Initialize explosion animation clip in Explosion object
+
+In EnemyController.cs, define and instantiate explosion
+    public GameObject explosion;
+
+ void Die()
+     {
+        controller.AddScore(amount);
+        Instantiate(explosion, transform.position, Quaternion.Euler(0, 0, 0));
+        Destroy(gameObject);
+     }
+Save Explosion object as a prefab and initialize in enemy objects
+
+Add flash for player sprite, download and unzip flash.zip to Sprites folder
+Select flash sprites and add to Hierarchy, save under Animations folder and rename to Flash
+Attach ExplosionController.cs script file to Flash game object
+Save Flash object as a prefab and initialize flash animation clip
+In PlayerController.cs, define and instantiate flash
+public GameObject flash;
+
+ void Shoot()
+    {
+        for(int i = 0; i < bulletSpawnPositions.Length; i++)
+        {
+            Instantiate(bullet, bulletSpawnPositions[i].transform.position, Quaternion.identity);
+        }
+        Instantiate(flash, transform.position, Quaternion.identity);
+ 
+        coolDown = timeBetweenShots;
+    }
+
+Initialize Flash prefab in Player object
+Create and develop Level 02
+Duplicate Level 01 scene, adjust background, enemies and values
+Add Level 02 in build settings
+
