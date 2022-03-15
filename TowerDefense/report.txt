@@ -1,0 +1,596 @@
+Microgame #4 Tower Defense Game
+Franklin Assa
+003068831
+
+Project setup
+Download assets
+Create folders
+Tilemap setup
+Change tilemap properties
+
+Slice tilemap
+Create Tilemap object
+Create new tilemap palette
+Draw pathway with tiles
+
+
+Tower spawn and game controller
+Create tower spawn from sprites, order layer 1
+Script TowerSpawnController, attach to object, Box Collider 2D
+
+GameController object, GameController.cs script, attach component
+Save TowerSpawn object as prefab
+Create cannon tower from sprites
+Cannon top object, cannon base as child object, save as prefab
+
+Initialize cannon prefab in GameController object
+
+Set so only one tower spawns on click
+    private void OnMouseDown()
+    {
+        if(control.credits >= control.currentTowerCost)
+        {
+            Debug.Log("Tower spawned");
+            control.GiveMoney(-control.currentTowerCost);
+            Instantiate(control.tower, transform.position, transform.rotation);
+            gameObject.SetActive(false);
+        }
+    }
+
+Create CannonController.cs script
+    public float shootSpeed;
+    public float rotationSpeed;
+    public Transform target;
+    public float attackRange;
+ 
+    public Transform child;
+ 
+    protected float coolDown;
+    public GameObject bullet;
+
+void Update()
+    {
+        if(target != null)
+        {
+            Debug.Log(target.gameObject);
+            Vector3 direction = target.transform.position - transform.position;
+            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90;
+            transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.AngleAxis(angle, Vector3.forward), Time.deltaTime * rotationSpeed);
+ 
+            if(coolDown > 0)
+            {
+                coolDown -= Time.deltaTime;
+            }
+            else
+            {
+                Shoot();
+            }
+        }
+    }
+
+
+Add enemy
+Enemy sprite, tag as enemy, Box Collider 2D, Rigidbody 2D
+		
+Save as prefab
+Tower attack functionality, CannonController.cs
+Attack enemy within range
+    private void OnEnable()
+    {
+        GetComponent<CircleCollider2D>().radius = attackRange;
+        coolDown = shootSpeed;
+    }
+       
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if(collision.gameObject.CompareTag("Enemy") && target == null)
+        {
+            target = collision.transform;
+        }
+    }
+ 
+    private void OnTriggerStay2D(Collider2D collision)
+    {
+        if(collision.gameObject.CompareTag("Enemy") && target == null)
+        {
+            target = collision.transform;
+        }
+    }
+ 
+    private void OnTriggerExit2D(Collider2D collision)
+    {
+        if(collision.gameObject.CompareTag("Enemy") && target == null)
+        {
+            target = collision.transform;
+        }
+    }
+
+Turret rotation function
+private void LateUpdate()
+    {
+        child.transform.rotation = Quaternion.identity;
+    }
+
+Shooting functionality
+public override void Shoot()
+    {
+        Instantiate(bullet, bulletSpawnPositions[0].transform.position, transform.rotation);
+        Instantiate(flash, bulletSpawnPositions[0].transform.position, transform.rotation);
+        src.Play();
+        coolDown = shootSpeed;
+        base.Shoot();
+    }
+
+Create Bullet object from sprite
+Circle Collider 2D, Rigidbody 2D
+		
+Create BulletController.cs, attach to object
+public class BulletController : MonoBehaviour
+{
+   
+    public float speed;
+    Rigidbody2D rb2dBullet;
+    public float damage;
+ 
+    private void Awake()
+    {
+        rb2dBullet = GetComponent<Rigidbody2D>();
+    }
+   
+    private void OnEnable()
+    {
+        rb2dBullet.AddForce(transform.up * speed);
+        Invoke("Disable", 4f);
+    }
+    
+    void Disable()
+    {
+        //Destroy(gameObject);
+        gameObject.SetActive(false);
+    }
+ 
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if(collision.gameObject.CompareTag("Enemy"))
+        {
+            collision.GetComponent<EnemyController>().TakeDamage(damage);
+            Invoke("Disable", 0.1f);
+        }
+    }
+ 
+    private void OnDisable()
+    {
+        CancelInvoke();
+    }
+}
+
+Save as prefab
+Initialize bullet in cannon object
+Collision function
+Enemy functionality, 
+Create EnemyController.cs script
+Add enemy spawn position and waypoints
+Empty object SpawnPosition outside camera
+Empty object Waypoints
+Five empty Waypoint objects
+In GameController.cs, create array to store waypoints
+    public Transform[] waypoints;
+
+Initialize waypoint objects in GameController object
+
+In EnemyController.cs, define movement to target waypoints
+void Update()
+    {
+        Vector3 direction = target.transform.position - transform.position;
+        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90;
+        transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.AngleAxis(angle, Vector3.forward), Time.deltaTime * rotationSpeed);
+ 
+        if(canMove)
+        {
+            rb2dEnemy.AddForce(transform.up * speed * Time.deltaTime);
+        }
+ 
+        distance = Vector2.Distance(transform.position, target.position);
+        if(distance <= 0.01f)
+        {
+            canMove = false;
+            Invoke("CanMove", 0.5f);
+            if(currentWaypoint < controller.waypoints.Length - 1) // if current waypoint is not last waypoint
+            {
+                currentWaypoint++;
+                target = controller.waypoints[currentWaypoint];
+            }
+            else // waypoint is last waypoint
+            {
+                controller.TakeDamage(damage);
+                gameObject.SetActive(false);
+            }
+        }
+    }
+ 
+    void CanMove()
+    {
+        canMove = true;
+    }
+
+Create damage functionality for player and enemy
+In GameController.cs and EnemyController.cs define variables and functions
+public float maxHealth;
+    [SerializeField]
+    float health;
+    public Image healthImage;
+    public float lerpSpeed;
+
+ public void TakeDamage(float damage)
+    {
+        health -= damage;
+        if(health <= 0)
+        {
+            gameOver = true;
+            gameOverUI.SetActive(true);
+            Time.timeScale = 0;
+        }
+    }
+
+Rigidbody2D rb2dEnemy;
+    public float speed;
+    public float maxHealth;
+    [SerializeField]
+    float health;
+ 
+    Transform target;
+ 
+    [SerializeField]
+    int currentWaypoint;
+    GameController controller;
+    public float rotationSpeed;
+ 
+    float distance;
+ 
+    bool canMove = true;
+ 
+    public float damage;
+ 
+    public float dropCredits;
+ 
+    public GameObject explosion;
+
+ public void TakeDamage(float damage)
+    {
+        health -= damage;
+        if(health <= 0)
+        {
+            controller.GiveMoney(dropCredits);
+            Instantiate(explosion, transform.position, Quaternion.identity);
+            gameObject.SetActive(false);
+        }
+    }
+Initialize player health, enemy damage in objects
+		
+
+
+Create new image and text UI for health bar
+Set Health image and duplicate with the following properties
+		
+In GameController.cs, define and instantiate health bar
+public float maxHealth;
+    [SerializeField]
+    float health;
+    public Image healthImage;
+    public float lerpSpeed;
+
+Add currency functionality
+In GameController.cs, define variables and functions
+  [HideInInspector]
+    public float currentTowerCost;
+    public float credits;
+    public Text creditsText;
+In TowerSpawnController.cs, define functions
+private void OnMouseDown()
+    {
+        if(control.credits >= control.currentTowerCost)
+        {
+            Debug.Log("Tower spawned");
+            control.GiveMoney(-control.currentTowerCost);
+            Instantiate(control.tower, transform.position, transform.rotation);
+            gameObject.SetActive(false);
+        }
+    }
+ 
+    private void OnMouseOver()
+    {
+        if(control.credits >= control.currentTowerCost)
+        {
+            render.color = Color.green;
+        }
+        else
+        {
+            render.color = Color.red;
+        }
+    }
+ 
+    private void OnMouseExit() {
+        {
+            render.color = Color.white;
+        }
+    }
+
+Create new Text UI to display currency
+Initialize values in GameController object
+		
+Add functionality to gain currency when enemy is destroyed
+public void GiveMoney(float amount)
+    {
+        credits += amount;
+    }
+
+ public void TakeDamage(float damage)
+    {
+        health -= damage;
+        if(health <= 0)
+        {
+            controller.GiveMoney(dropCredits);
+            Instantiate(explosion, transform.position, Quaternion.identity);
+            gameObject.SetActive(false);
+        }
+    }
+
+Add more tower variations
+Create BaseTower.cs as a base class
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+ 
+public class BaseTower : MonoBehaviour
+{
+    public float shootSpeed;
+    public float rotationSpeed;
+    public Transform target;
+    public float attackRange;
+ 
+    public Transform child;
+ 
+. . .
+	
+
+Change CannonController.cs to be a child class
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+ 
+public class CannonController : BaseTower
+{
+	. . .
+
+Add BulletSpawnPosition object as child
+In BaseTower.cs, define bullet spawn positions
+    public GameObject[] bulletSpawnPositions;
+
+Create new Shotty tower using the Cannon prefab, change sprites, bullets
+		
+Duplicate BulletSpawnPosition object for the Shotty tower to have 2 positions
+Create new ShottyController.cs script file for shooting functionality
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+ 
+public class ShottyController : BaseTower
+{
+    public override void Shoot()
+    {
+        for(int j = 0; j < bulletSpawnPositions.Length; j++)
+        {
+            for(int i = 0; i < 5; i++)
+            {
+                Instantiate(bullet, bulletSpawnPositions[j].transform.position, transform.rotation * Quaternion.Euler(0, 0, (i * 5) - 15f));
+            }
+        }
+        Instantiate(flash, bulletSpawnPositions[0].transform.position, transform.rotation);
+        src.Play();
+        coolDown = shootSpeed;
+        base.Shoot();
+    }
+}
+
+Save Shotty and ShottyBullets as prefab
+Create new Mortar tower with the same process as the Shotty tower
+
+Create new MortarController.cs and MortarShellController.cs script files for shooting functionality
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+ 
+public class MortarController : BaseTower
+{
+    public override void Shoot()
+    {
+        Instantiate(bullet, bulletSpawnPositions[0].transform.position, transform.rotation);
+        Instantiate(flash, bulletSpawnPositions[0].transform.position, transform.rotation);
+        src.Play();
+        coolDown = shootSpeed;
+        base.Shoot();
+    }
+}
+ 
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+ 
+public class MortarShellController : MonoBehaviour
+{
+    public float speed;
+    Rigidbody2D rb2dBullet;
+    public float damage;
+ 
+    public float radius;
+    public LayerMask enemyMask;
+ 
+    private void Awake()
+    {
+        rb2dBullet = GetComponent<Rigidbody2D>();
+    }
+   
+    private void OnEnable()
+    {
+        rb2dBullet.AddForce(transform.up * speed);
+        Invoke("Disable", 4f);
+    }
+ 
+    void Disable()
+    {
+        //Destroy(gameObject);
+        gameObject.SetActive(false);
+    }
+ 
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if(collision.gameObject.CompareTag("Enemy"))
+        {
+            Collider2D[] hit = Physics2D.OverlapCircleAll(transform.position, radius, enemyMask);
+            foreach(Collider2D col in hit) {
+                {
+                    col.GetComponent<EnemyController>().TakeDamage(damage);
+                }
+            }
+            Invoke("Disable", 0.1f);
+        }
+    }
+ 
+    private void OnDisable()
+    {
+        CancelInvoke();
+    }
+ 
+    private void OnDrawGizmos()
+    {
+        Gizmos.DrawWireSphere(transform.position, radius);
+    }
+}
+ 
+
+Save Mortar and MortarShell as prefab
+Create new enemy layer and change Physics settings to prevent enemy collision
+
+Create UI for tower selection
+Add new Button object and text child object
+In GameController.cs, define variables and functions for towers
+ public BaseTower tower;
+    public BaseTower[] towers;
+
+public void UpdateTower(int i)
+    {
+        tower = towers[i];
+        currentTowerCost = towers[i].cost;
+    }
+
+
+Initialize tower prefabs in GameController
+
+Initialize UpdateTower function in button, duplicate and change buttons for each cannon
+		
+Spawn enemies
+In GameController.cs, define variables and functions
+    public GameObject spawnPosition;
+    public GameObject[] enemies;
+
+Initialize in GameController object
+		
+
+Create additional enemies
+Duplicate EnemyAPC prefab, unpack, rename, replace sprite, adjust properties
+		
+Add new enemy objects to spawn array in GameController
+Add explosion animation
+Edit and slice explosion sprite in sprite editor
+		
+Select explosion sprites and add to hierarchy, save to animations folder
+Create new ExplosionController.cs script, add to explosion object
+In ExplosionController.cs, define functions for animation
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+ 
+public class ExplosionController : MonoBehaviour
+{
+    public AnimationClip clip;
+ 
+    private void OnEnable()
+    {
+        Invoke("Disable", clip.length);
+    }
+ 
+    void Disable()
+    {
+        gameObject.SetActive(false);
+    }
+ 
+    private void OnDisable()
+    {
+        CancelInvoke();
+    }
+}
+
+Initialize explosion animation to clip in explosion object
+In EnemyController.cs, instantiate explosion function
+Set explosion layer to 2, save as prefab
+Initialize explosion prefab for enemy objects
+		
+Add flash animation
+Select flash sprites and add to hierarchy, save to animations folder
+Add ExplosionController.cs as component
+Initialize flash animation to clip in flash object
+Instantiate animation clip in tower controller scripts
+public override void Shoot()
+    {
+        Instantiate(bullet, bulletSpawnPositions[0].transform.position, transform.rotation);
+        Instantiate(flash, bulletSpawnPositions[0].transform.position, transform.rotation);
+        src.Play();
+        coolDown = shootSpeed;
+        base.Shoot();
+    }
+
+
+Set layer to 2, save Flash as prefab, initialize in tower objects
+		
+Add audio
+Extract audio clips from zip file
+Create empty game object, attach Audio Source component, add background music clip
+		
+Attach Audio Source component to Explosion object, add sound effect clip
+Instantiate audio source in tower controller scripts
+protected AudioSource src;
+
+
+Attach Audio Source components to tower objects
+		
+Create Game Over UI
+In GameController.cs define variables and functions
+    public bool gameOver;
+    public GameObject gameOverUI;
+
+void Update()
+    {
+        . . .
+ 
+        if(!gameOver){
+ 
+            if(coolDown > 0)
+            {
+                coolDown -= Time.deltaTime;
+            }
+            else
+            {
+                SpawnEnemy();
+            }
+        }
+        if(gameOver && Input.anyKeyDown)
+        {
+            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            Time.timeScale = 1f;
+        }
+    }
+
+
+Create new Image UI, Text UI
+
