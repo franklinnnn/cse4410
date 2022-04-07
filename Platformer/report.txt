@@ -1,0 +1,462 @@
+Microgame #5 Platformer Game
+Franklin Assa
+003068831
+
+Project setup
+Download assets, create folders
+Change pixels per unit for sprites to 32
+Create tilemap
+
+Create background object
+Add tiles, make walls and platforms
+
+Attach Tilemap Collider 2D to all tiles
+Create new Wall layer and tag, set tilemap to wall layer
+Add player
+Add sprite to hierarchy, rename, 
+attach Capsule Collider 2D, Rigidbody 2D
+
+Create PlayerController.cs script for player movement
+ 
+public class PlayerController : MonoBehaviour
+{
+    public float speed;
+    Rigidbody2D playerRigidbody;
+    float inputX;
+ 
+    public LayerMask wallLayer;
+    public float rayLength;
+    bool canJump;
+    public float jumpHeight;
+ 
+    bool hurt;
+    public float maxHealth;
+    [SerializeField]
+    float health;
+    public float timeBetweenHurt;
+    float iframe;
+ 
+	. . .
+
+Add functionality for player to take damage
+ 
+    public void Damage(float amt) {
+        if(iframe < 0){
+            health -= amt;
+            hurt = true;
+            Invoke("ResetHurt", 0.2f);
+            if(health < 0) {
+            }
+            iframe = timeBetweenHurt;
+        }
+    }
+    void ResetHurt(){
+        hurt = false;
+    }
+ 
+ 
+Add player animation
+Add sprite frames to player object
+Create new clip for additional animations
+
+Arrange transitions for state animations
+
+
+Add parameters to state transitions
+Set conditions for each state
+
+
+In PlayerController.cs, define variables for parameters
+    void Update(){
+        inputX = Input.GetAxisRaw("Horizontal");
+ 
+       . . .
+ 
+        anim.SetBool("moving", inputX !=  0);
+        anim.SetBool("canJump", canJump);
+        anim.SetBool("hurt", hurt);
+    }
+
+Set player sprite to face correct direction when moving
+  void Update() {
+        inputX = Input.GetAxisRaw("Horizontal");
+        if(inputX != 0){
+            playerRigidbody.AddForce(Vector2.right * inputX * speed * Time.deltaTime);
+ 
+        }
+        rend.flipX = (inputX < 0);
+		
+. . .
+ 
+
+
+Set camera to follow player, create CameraController.cs script
+ 
+public class CameraController : MonoBehaviour{
+    public Transform target;
+    public float lerpSpeed;
+ 
+    Vector3 tempPosition;
+    [SerializeField]
+    float minX, minY, maxX, maxY;
+ 
+    // Update is called once per frame
+    void FixedUpdate()
+    {
+       
+        if(target == null) return;
+        tempPosition = target.position;
+        tempPosition.z = -10;
+ 
+        if(target.position.x < minX)
+            tempPosition.x = minX;
+        if(target.position.y < minY)
+            tempPosition.y = minY;
+ 
+        if(target.position.x > maxX)
+            tempPosition.x = maxX;
+        if(target.position.y > maxY)
+            tempPosition.y = maxY;
+ 
+        transform.position = Vector3.Lerp(transform.position, tempPosition, lerpSpeed * Time.deltaTime);
+    }
+}
+
+Add coins to game
+Create empty object Coins, place Coin asset from sprites in Coins
+
+
+Add Circle Collider 2D to Coin object
+
+In PlayerController.cs, define variables and function for player to interact with Coin 
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if(collision.gameObject.CompareTag("Coin"))
+        {
+            coins++;
+            collision.gameObject.SetActive(false);
+        }
+    }
+
+
+
+Create text and image objects to display health bar and number of coins
+
+Add enemies
+Create base class EnemyController.cs, define and create functions
+public class EnemyController : MonoBehaviour
+{
+    public float maxHealth;
+    protected float health;
+    public Image healthImage;
+ 
+    public float speed;
+    public float runSpeed;
+    public float chaseRange;
+    public float attackRange;
+    public enum enemystates { move, chase, attack }
+    public enemystates currentState = enemystates.move;
+    protected Rigidbody2D enemyRigidbody;
+ 
+	. . .
+ 
+    	public virtual void Move(){}
+public virtual void Chase(){}
+     	public virtual void Attack(){}
+    	public virtual void Damage(float amount){}
+public virtual void Die() {}
+ 
+	. . .
+ 
+ 
+void Update()
+    {
+        rend.flipX = (direction == -1);
+        switch(currentState)
+        {
+            case enemystates.move:
+                Move();
+                break;
+            case enemystates.chase:
+                Chase();
+                break;
+            case enemystates.attack:
+                Attack();
+                break; 
+        }
+        if(attackCooldown > 0)
+            attackCooldown --;
+        healthImage.fillAmount = health / maxHealth;
+    }
+
+Create Melee Enemy
+Place Melee Enemy sprite in hierarchy, attachRigidbody2D, Capsule Collider 2D, tag
+
+Create MeleeEnemy.cs script as child class, add component to Melee Enemy object
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+ 
+public class MeleeEnemy : EnemyController
+{
+	. . .
+   
+
+Add health bar for Melee Enemy
+
+Implement enemy move function
+In EnemyController.cs
+ 
+    private void OnEnable()
+    {
+        health = maxHealth;
+        direction = (Random.value >= 0.5f) ? 1 : -1;
+        attackCooldown = timeBetweenAttacks;
+    }
+ 
+    void Awake()
+    {
+        enemyRigidbody = GetComponent<Rigidbody2D>();
+        rend = GetComponent<SpriteRenderer>();
+        player = FindObjectOfType<PlayerController>();
+        anim = GetComponent<Animator>();
+    }
+
+
+In MeleeEnemy.cs
+   
+    public override void Move()
+    {
+        distance = Vector2.Distance(transform.position, player.transform.position);
+        RaycastHit2D hit = Physics2D.Raycast(transform.position, Vector2.right * direction, rayLength, wallLayer);
+        RaycastHit2D hitDown = Physics2D.Raycast(transform.position, Vector2.right * direction - Vector2.up, rayLength, wallLayer);
+ 
+        if(hit.collider != null)
+            direction *= -1;
+        if(hitDown.collider == null)
+            direction *= -1;
+        if(distance <= chaseRange)
+            currentState = enemystates.chase;
+        enemyRigidbody.AddForce(Vector2.right * direction * speed * Time.deltaTime);
+    }
+Implement enemy chase function
+In MeleeEnemy.cs
+ 
+    public override void Chase()
+    {
+        distance = Vector2.Distance(transform.position, player.transform.position);
+        if(transform.position.x > player.transform.position.x){
+            direction = -1;
+        else
+            direction = 1;
+ 
+        if(distance >= chaseRange)
+            currentState = enemystates.move;
+        if(distance <= attackRange)
+            currentState = enemystates.attack;
+        enemyRigidbody.AddForce(Vector2.right * direction * runSpeed * Time.deltaTime);
+    }
+Implement enemy attack function
+MeleeController.cs
+    public override void Attack()
+    {
+        if(attackCooldown < 0) {
+            anim.SetBool("attack", true);
+            Invoke("ResetAttack", 0.1f);
+            attackCooldown = timeBetweenAttacks;
+        }
+        else{
+            currentState = enemystates.chase;
+        }
+    }
+
+Add enemy animations
+Add walking and attacking sprites to MeleeEnemy object, save animations
+
+In animator window, set state transitions and parameters
+
+Initialize animation in base class EnemyController.cs
+    protected Animator anim;
+ 
+    void Awake(){
+        . . .
+        anim = GetComponent<Animator>();
+    }
+Instantiate animations in Melee Enemy object
+
+
+Implement enemy interactions
+Enemy movement on platforms
+ public override void Move()
+    {
+        distance = Vector2.Distance(transform.position, player.transform.position);
+        RaycastHit2D hit = Physics2D.Raycast(transform.position, Vector2.right * direction, rayLength, wallLayer);
+        RaycastHit2D hitDown = Physics2D.Raycast(transform.position, Vector2.right * direction - Vector2.up, rayLength, wallLayer);
+ 
+	. . .
+Enemy collision with player, create AttackCollider object,  create MeleeCollider.cs
+public class MeleeCollider : MonoBehaviour
+{
+   . . .
+ 
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if(collision.gameObject.CompareTag("Player")){
+       collision.gameObject.GetComponent<PlayerContoller>().Damage(attack);
+        }
+    }
+    private void OnTriggerStay2D(Collider2D collision) {
+        if(collision.gameObject.CompareTag("Player")){         collision.gameObject.GetComponent<PlayerContoller>().Damage(attack);
+        }
+    }   
+Disable collider for walking animation, enable collider for attacking animation
+
+
+Create RangedEnemy
+Pleace Ranged Enemy sprite in hierarchy, attach components
+
+Copy health bar from Melee Enemy
+
+Create RangedEnemy.cs script, attach to RangedEnemy object
+
+Copy MeleeEnemy script to RangedEnemy
+Add baseball sprite under RangedEnemy object, attach Circle Collider 2D and Rigidbody 2D
+
+Create BaseballController.cs script, attach to Baseball sprite
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+ 
+public class BulletController : MonoBehaviour
+{
+   
+    public float speed;
+    Rigidbody2D baseballRigidbody;
+    public float damage;
+ 
+    private void Awake(){
+        baseballRigidbody = GetComponent<Rigidbody2D>();
+    }
+   
+    private void OnEnable(){
+        baseballRigidbody.AddForce(transform.up * speed);
+    }
+    void Disable(){
+        gameObject.SetActive(false);
+    }
+ 
+    private void OnTriggerEnter2D(Collider2D collision){
+        if(collision.gameObject.CompareTag("Player")){
+            collision.GetComponent<PlayerController>().Damage(damage);
+            Invoke("Disable", 0.1f);
+        }
+        if(collision.gameObject.CompareTag("Wall")){
+            Invoke("Disable", 0.1f);
+        }
+    }
+    private void OnDisable(){
+        CancelInvoke();
+
+Implement ranged attack function in RangedEnemy.cs
+ public override void Attack()
+    {
+        if(attackCooldown < 0){
+            anim.SetBool("attack", true);
+            Vector3 dir = player.transform.position - transform.position;
+            float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90;
+            Instantiate(baseball, transform.position, Quaternion.AngleAxis(angle, Vector3.forward));
+            Invoke("ResetAttack", 0.1f);
+            attackCooldown = timeBetweenAttacks;
+        }
+        else {
+            currentState = enemystates.chase;
+        }
+    }
+Add Ranged Enemy animations
+Add walking and attacking sprites to RangedEnemy object
+
+Set state transitions and parameters
+
+
+
+Create RedEnemy
+Pleace Ranged Enemy sprite in hierarchy, attach components
+
+Copy health bar and attack collider from  Melee Enemy
+
+Attach MeleeEnemy.cs script to RedEnemy object
+Add Red Enemy animations
+Add walking and attacking sprites to RedEnemy object
+
+
+
+Set state transitions and parameters
+
+Disable collider for walking animation, enable collider for attacking animation
+
+Uncheck Enemy layer collision matrix
+
+Add functionality for Player to attack by jumping on enemies
+In PlayerController.cs
+ 
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        if(collision.gameObject.CompareTag("Enemy") && playerRigidbody.velocity.y < 0)
+        {
+            float boundsY = collision.gameObject.GetComponent<SpriteRenderer>().bounds.size.y / 2;
+            if(transform.position.y > collision.gameObject.transform.position.y + boundsY)
+            {
+                playerRigidbody.AddForceAtPosition(-playerRigidbody.velocity.normalized * jumpHeight/2, playerRigidbody.position);
+                collision.gameObject.GetComponent<EnemyController>().Damage(5f);
+            }
+Create game over function and UI
+In PlayerController.cs
+ 
+    public void Damage(float amt)
+    {
+        if(iframe < 0){
+            health -= amt;
+            hurt = true;
+            Invoke("ResetHurt", 0.2f);
+            if(health <= 0)
+                GameOver();
+            iframe = timeBetweenHurt;
+        }
+    }
+    void GameOver() {
+        gameover = true;
+        gameoverUI.SetActive(true);
+        Time.timeScale = 0f;
+    }
+
+
+
+Create win condition function and UI
+Use coin prefab to create BigCoin object
+
+In PlayerController.cs
+ 
+    void GameWin()
+    {
+        gamewin = true;
+        gamewinUI.SetActive(true);
+        Time.timeScale = 0f;
+    }
+ 
+	. . .
+ 
+   private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if(collision.gameObject.CompareTag("Coin")){
+            coins++;
+            collision.gameObject.SetActive(false);
+        }
+        if (collision.gameObject.CompareTag("BigCoin")){
+            coins += 10;
+            collision.gameObject.SetActive(false);
+            GameWin();
+        }
+    }
+
+
