@@ -1,0 +1,240 @@
+Microgame #6 Racing Game
+Franklin Assa
+003068831
+
+Project setup
+Download assets, create folders
+Change pixels per unit for sprites to 32
+Create tilemap
+
+Create grass and track
+
+Add finish line, checkpoint flags, and car from sprites
+
+Attach Box Collider 2D, Rigidbody2D and CarController.cs script to Car object
+
+Create movement functionality
+public class CarController : MonoBehaviour
+{
+ 
+    Rigidbody2D carRigidbody;
+    public float speed;
+    public float backSpeed;
+    public float rotateSpeed;
+    Vector2 input;
+ 
+	...
+ void Update()
+    {
+        if(cont.started && !slicked){
+            input = new Vector2(Input.GetAxis(inputXName), Input.GetAxis(inputYName));
+            if(input.x != 0)
+                transform.Rotate(0, 0, -rotateSpeed * Time.deltaTime * input.x);
+            if(input.y > 0)
+                carRigidbody.AddForce(transform.up * input.y * speed * Time.deltaTime);
+            if(input.y < 0)
+                carRigidbody.AddForce(transform.up * input.y * backSpeed * Time.deltaTime);
+        }
+	. . .
+
+Set camera to follow car
+Create CameraController.cs script
+ 
+public class CameraController : MonoBehaviour
+{
+ 
+    public Transform target;
+    public float lerpSpeed;
+   
+ 
+    // Update is called once per frame
+    void FixedUpdate()
+    {
+        transform.position = Vector3.Lerp(transform.position, new Vector3(target.position.x, target.position.y, -10), lerpSpeed * Time.fixedDeltaTime);
+    }
+}
+Set camera target to Car object
+Set inputs for player 1 car and player 2 car
+Add player 1 and player 2 inputs in Input Manager
+
+	
+    public string inputXName;
+    public string inputYName;
+
+Add second Car object
+
+Create second camera for second car
+ 
+    public GameObject cam;
+    public int num;
+ 
+    . . .
+ 
+    private void OnEnable()
+    {
+        GameObject c = Instantiate(cam, transform.position, Quaternion.identity);
+        c.GetComponent<CameraController>().target = transform;
+        if(num == 1)
+        {
+            c.GetComponent<Camera>().rect = new Rect(new Vector2(0f, 0f), new Vector2(0.5f, 1f));
+        }
+        else{
+            c.GetComponent<Camera>().rect = new Rect(new Vector2(0.5f, 0f), new Vector2(0.5f, 1f));
+        }
+		
+Save Main Camera as a prefab, initialize in corresponding Car objects
+
+Delete Main Camera from Hierarchy
+
+Create colliders for track
+In the Sprite Editor, create custom physics shape for  tiles used
+
+For tiles used in the middle of the track, set collider to ‘None’
+Create functionality for laps around the track
+Create GameController object and GameController.cs script
+In CarController.cs
+ 
+    [SerializeField]
+    int currentLap = 0;
+    GameController cont;
+ 
+	. . .
+ 
+ 
+    private void OnEnable()
+    {
+         . . .
+ 
+        currentLap = 0;
+
+Add Box Collider 2D to Goal  and Checkpoint objects
+ 
+In CarController.cs
+ private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if(collision.gameObject.CompareTag("Goal") && hitCheckPoints)
+        {    
+            currentLap++;
+            if(currentLap >= cont.laps)
+                cont.EndGame(num);
+            hitCheckPoints = false;
+        }
+ 
+ 	. . .
+ 
+        if(collision.gameObject.CompareTag("CheckPoints"))
+        {
+            hitCheckPoints = true;
+        }
+ 
+    }
+
+Create end game condition
+In GameController.cs
+public class GameController : MonoBehaviour
+{
+    public int laps;
+    public Text winText;
+    bool endGame = false;
+ 
+. . .
+ 
+  void Update()
+    {
+         . . .
+ 
+        if(endGame && Input.anyKeyDown)
+            SceneManager.LoadScene("SampleScene");
+    }
+ 
+    public void EndGame(int num)
+    {
+        endGame = true;
+        winText.gameObject.SetActive(true);
+        winText.text = "Player " + num + "wins! Restart!";
+    }
+ 
+
+Create text object
+ 
+Create countdown functionality
+In GameController.cs
+ 
+    public Text countdown;
+    public float timeToStart = 3f;
+    public bool started = false;
+   
+void Update()
+    {
+        if(timeToStart > 0)
+        {
+            timeToStart -= Time.deltaTime;
+            countdown.text = Mathf.RoundToInt(timeToStart).ToString();
+        }
+        else
+        {
+            started = true;
+            countdown.gameObject.SetActive(false);
+        }
+ 
+	. . .
+
+
+Create obstacles functionality
+Add obstacle tiles from sprites, attach Circle Collider 2D
+
+
+In CarController.cs
+ 
+    float cools;
+    public float slickTimer;
+    public bool slicked = false;
+    public float slickRotation;
+    Vector2 slickDirection;
+ 
+    public float regDrag;
+    public float slickDrag;
+    float currentDrag;
+    public float dragLerp;
+ 
+ void Update()
+    {
+        if(cont.started && !slicked){
+            input = new Vector2(Input.GetAxis(inputXName), Input.GetAxis(inputYName));
+            if(input.x != 0)
+                transform.Rotate(0, 0, -rotateSpeed * Time.deltaTime * input.x);
+            if(input.y > 0)
+                carRigidbody.AddForce(transform.up * input.y * speed * Time.deltaTime);
+            if(input.y < 0)
+                carRigidbody.AddForce(transform.up * input.y * backSpeed * Time.deltaTime);
+        }
+        if(slicked){
+            carRigidbody.AddForce(slickDirection * backSpeed * Time.deltaTime);
+            transform.Rotate(0, 0, slickRotation * Time.deltaTime);
+            if(cools <= 0)
+                slicked = false;
+        }
+        if(cools > 0)
+            cools -= Time.deltaTime;
+ 
+        currentDrag = slicked ? slickDrag : regDrag;
+        carRigidbody.drag = Mathf.Lerp(carRigidbody.drag, currentDrag, dragLerp * Time.deltaTime);
+    }
+ 
+	. . .
+ 
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+ 
+       . . .
+ 
+        if(collision.gameObject.CompareTag("Obstacle"))
+        {    
+            slickDirection = transform.up;
+            cools = slickTimer;
+            slicked = true;
+        }
+ 
+ 
+
+
