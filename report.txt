@@ -1,0 +1,553 @@
+
+
+
+
+ENDLESS 
+ROLLING
+
+
+
+
+
+
+
+
+
+3D endless game
+Road tiles spawn infinitely
+Collect coins and gain more speed
+
+
+
+
+
+
+
+
+
+Link
+Franklin Assa
+003068831
+Project setup
+Create new 3D project
+Download assets, create folders
+Free assets available in Unity Asset Store
+		
+Player movement
+Create new 3D plane object for the ground
+Create new 3D capsule object for the player
+Create new material for ground and player, drag and drop corresponding material to objects
+		
+Adjust properties of main camera for correct angle
+		
+Create PlayerController.cs script, attach script and Character Controller component to Player object
+		
+Player moves along forward along the z-axis
+public class PlayerController : MonoBehaviour
+{
+    private CharacterController controller;
+    private Vector3 direction;
+    public float forwardSpeed;
+	. . .
+ 
+    void Start()
+    {
+        controller = GetComponent<CharacterController>();
+    }
+ 
+    void Update()
+    {
+            direction.z = forwardSpeed;
+ 	. . .
+
+Moving the player right and left
+public class PlayerController : MonoBehaviour
+{
+    . . .
+ 
+    private int desiredLane = 1; // 0 on left lane, 1 on middle lane, 2 on right lane
+    public float laneDistance = 2; // distance between lanes
+ 
+     void Update()
+    {
+	. . .
+       
+                // Gather inputs on which lane player should be
+        if(Input.GetKeyDown(KeyCode.RightArrow))
+        {
+            desiredLane++;
+            if(desiredLane == 3)
+                desiredLane = 2;
+        }
+        if(Input.GetKeyDown(KeyCode.LeftArrow))
+        {
+            desiredLane--;
+            if(desiredLane == -1)
+                desiredLane = 0;
+        }
+ 
+        // Calculate where player should be in the future
+        Vector3 targetPosition = transform.position.z * transform.forward + transform.position.y * transform.up;
+        if(desiredLane == 0)
+        {
+            targetPosition += Vector3.left * laneDistance;
+        }
+        else if(desiredLane == 2)
+        {
+            targetPosition += Vector3.right * laneDistance;
+        }
+ 
+transform.position == targetPosition)
+ 
+. . .
+
+Camera movement to follow the player
+Create CameraController.cs script and attach to camera object
+public class CameraController : MonoBehaviour
+{
+   
+    public Transform target;
+    private Vector3 offset;
+ 
+    void Start()
+    {
+        offset = transform.position - target.position;
+    }
+ 
+    void LateUpdate()
+    {
+        Vector3 newPosition = new Vector3(transform.position.x, transform.position.y, offset.z + target.position.z);
+        transform.position = Vector3.Lerp(transform.position, newPosition, 10 * Time.deltaTime);
+    }
+}
+ 
+Use LateUpdate() function for more smoothness
+Initialize target to player object
+
+Player jump and gravity functionality
+Create groundCheck empty object, place under player object
+groundCheck is to check if the player is making contact with the ground object
+Define variables and functions
+ 
+    public float jumpForce;
+    public float gravity = -20;
+ 
+    public bool grounded;
+    public Transform groundCheck;
+    public LayerMask groundLayer;
+ 
+	. . .
+ 
+    void Update()
+    {
+ 
+ 	. . .
+ 
+        grounded = Physics.CheckSphere(groundCheck.position, 0.3f, groundLayer);
+       
+        if(controller.isGrounded)
+        {
+            if(Input.GetKeyDown(KeyCode.Space))
+            {
+                 Jump();
+            }
+ 
+       }
+       else
+       {
+            direction.y += gravity * Time.deltaTime;
+       }
+ 
+	. . .
+ 
+    private void Jump()
+    {
+        direction.y = jumpForce;
+    }
+Initialize in player object
+
+Tile and obstacles prefabs
+Import models 
+
+Create first tile, place road model onto scene and add Box Collider component
+
+Save first tile as prefab
+Create additional tiles with obstacles and save as prefab
+
+
+Add Box Colliders to obstacles and resize to shape
+
+Infinitely spawn tiles functionality
+Create empty TileManager object and TileManager.cs script, attach script to object
+Tiles are held in an array and spawn along the z-axis
+The SpawnTile() function instantiates the tiles in the array randomly
+The DeleteTile() function destroys tiles after the player has passed it
+public class TileManager : MonoBehaviour
+{
+    public GameObject[] tilePrefabs;
+    public float zSpawn = 0;
+    public float tileLength = 30; // Length of road tile
+    public int numberOfTiles = 5;
+    private List<GameObject> activeTiles = new List<GameObject>();
+ 
+    public Transform playerTransform;
+    void Start(){
+        for(int i = 0; i < numberOfTiles; i++)
+        {
+            if(i == 0) // Always spawn first tile, first
+                SpawnTile(0);
+            else
+                SpawnTile(Random.Range(0, tilePrefabs.Length - 1));
+        }
+    }
+    void Update(){
+        // Spawn new tile in front of player, delete active tiles behind player
+        if(playerTransform.position.z - 35 > zSpawn - (numberOfTiles * tileLength))
+        {
+            SpawnTile(Random.Range(0, tilePrefabs.Length - 1));
+            DeleteTile();
+        }
+    }
+     public void SpawnTile(int tileIndex){
+        GameObject go = Instantiate(tilePrefabs[tileIndex], transform.forward * zSpawn, transform.rotation);
+        activeTiles.Add(go);
+        zSpawn += tileLength;
+    }
+    private void DeleteTile()
+    {
+        Destroy(activeTiles[0]);
+        activeTiles.RemoveAt(0);
+    }
+}
+
+Game over functionality
+UI displays when player collides with an obstacle
+Create new UI panel and buttons
+
+Create empty GameController object and script, attach script to object
+public class GameController : MonoBehaviour
+{
+    public static bool gameOver = false;
+    public GameObject gameOverUI;
+     void Start()
+    {
+        gameOver = false;
+        Time.timeScale = 1;
+    }
+    void Update()
+    {
+        if(gameOver)
+        {
+            Time.timeScale = 0;
+            gameOverUI.SetActive(true);
+        }
+    }
+
+Create new Obstacles tag for obstacles objects, change tags for obstacles
+
+In PlayerController.cs script, add functionality when player collides with obstacle
+   private void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        if(hit.transform.tag == "Obstacle")
+        {
+            GameController.gameOver = true;
+        }
+    }
+Create onClick events for buttons, create new Events.cs script and Events object, attach script to object
+using UnityEngine.SceneManagement;
+ 
+public class Events : MonoBehaviour
+{
+       
+    public void ReplayGame()
+    {
+        SceneManager.LoadScene("Level");
+    }
+Assign onClick event to button
+
+
+Start game functionality
+Game does not start until a key is pressed
+Create new Text UI
+
+In GameController.cs script, create functionality to start game when key is pressed
+public class GameController : MonoBehaviour
+{
+    public static bool gameOver = false;
+    public GameObject gameOverUI;
+    public static bool gameStart;
+    public GameObject startingText;
+    void Start()
+    {
+        gameOver = false;
+        Time.timeScale = 1;
+        gameStart = false;
+    }
+    void Update()
+    {
+        if(gameOver)
+        {
+            Time.timeScale = 0;
+            gameOverUI.SetActive(true);
+        }
+ 
+        if(Input.anyKeyDown)
+        {
+            gameStart = true;
+            startingText.SetActive(false);
+        }
+    }
+In PlayerController.cs script
+   private void FixedUpdate()
+    {
+        if(!GameController.gameStart)
+            return;
+        controller.Move(direction * Time.fixedDeltaTime);
+    }    
+Initialize starting text in Game Controller object
+Create new UI Image and Text object for game controls
+
+Animations for the Wheel (player)
+Create new empty object and rename to Wheel, place model under Wheel object, place Wheel object under Player object
+
+
+Create animations for idle, running, and jumping
+
+Create transition states and parameters
+
+In PlayerController.cs, make reference to animations
+    public Animator anim;
+    . . .
+    void Update()
+    {
+	. . .
+        anim.SetBool("isGameStarted", true);
+        direction.z = forwardSpeed;
+ 
+        grounded = Physics.CheckSphere(groundCheck.position, 0.3f, groundLayer);
+       
+        if(controller.isGrounded)
+        {
+            if(Input.GetKeyDown(KeyCode.Space))
+            {
+                anim.SetBool("isGrounded", grounded);
+                FindObjectOfType<AudioManager>().PlaySound("Jump");
+                Jump();
+            }
+ 
+       }
+       else
+       {
+            anim.SetBool("isGrounded", !grounded);
+            direction.y += gravity * Time.deltaTime;
+       }
+ 
+Sliding functionality
+Create slide animation, add transition state and parameter
+
+In PlayerController.cs create function to slide using StartCoroutine()
+    private bool sliding = false;
+ 
+    void Update()
+    {
+      
+	. . .
+ 
+       if(Input.GetKeyDown(KeyCode.LeftShift) && !sliding)
+       {
+           StartCoroutine(Slide());
+       }
+ 
+	. . .
+ 
+    private IEnumerator Slide()
+    {
+        sliding = true;
+        anim.SetBool("isSliding", true);
+        controller.center = new Vector3(0, -0.5f, 0);
+        controller.height = 1;
+        yield return new WaitForSeconds(1.1f * speedMultiplier);
+        controller.center = new Vector3(0, 0, 0);
+        controller.height = 2;
+        anim.SetBool("isSliding", false);
+        sliding = false;
+    }
+Slide() function accesses the animation and adjusts the player collider so it doesn’t collide with the obstacle
+Coins and speed functionality
+Create coin object with new cylinder object, adjust transform and color by creating new material, create new Coin tag
+Attach Collider and Coin.cs script, save Coin object as a prefab
+
+
+In Coin.cs script, create function to increment number of coins when a coin object collides with the player object, then set visibility of the coin off
+public class Coin : MonoBehaviour
+{
+    void Update()
+    {
+        transform.Rotate(60 * Time.deltaTime, 0, 0);
+    }
+    private void OnTriggerEnter(Collider other)
+    {
+        if(other.tag == "Player")
+        {
+            GameController.numberOfCoins += 1;
+           
+            Debug.Log("coins: " + GameController.numberOfCoins);
+            gameObject.SetActive(false);
+        }
+    }
+}
+In GameController.cs, define variable to count number of coins
+    public Text coinsText;
+    public GameObject controlsUI;
+    void Start()
+    {
+        gameOver = false;
+        Time.timeScale = 1;
+        gameStart = false;
+        numberOfCoins = 0;
+    }
+    void Update()
+    {
+        if(gameOver)
+        {
+            Time.timeScale = 0;
+            gameOverUI.SetActive(true);
+        }
+        coinsText.text = "COINS: " + numberOfCoins;
+Create new Text object to display number of coins, instantiate text object in Game Controller object
+Place coins in tile prefabs
+
+
+In PlayerController.cs, add functionality to increase player speed when a coin is collected
+    private void OnTriggerEnter(Collider other)
+    {
+        if(other.tag == "Coin")
+        {
+            forwardSpeed += 0.05f;
+        }
+
+
+
+Main Menu
+Create new scene for Menu, add scene in build settings
+Add elements(models, text, UI elements) to create menu
+
+Create empty object MainMenu and script MainMenu.cs, attach script to object
+In MainMenu.cs, create functionality for button onClick event
+public class MainMenu : MonoBehaviour
+{
+    IEnumerator DelaySceneLoad()
+    {
+        yield return new WaitForSeconds(1.0f);
+        SceneManager.LoadScene("Level");
+    }
+    public void PlayGame()
+    {
+        StartCoroutine(DelaySceneLoad());
+    }
+    public void QuitGame()
+    {
+        Application.Quit();
+    }
+}
+
+Music and sound effects
+Import sounds
+
+Create new empty object AudioManager and custom class Sounds.cs
+In Sounds.cs, create properties for audio clips
+[System.Serializable]
+public class Sound
+{
+    public string name;
+    public AudioClip clip;
+    public float volume;
+    public bool loop;
+    public AudioSource source;
+}
+
+Create new AudioManager.cs script, attach to AudioManager object
+public class AudioManager : MonoBehaviour
+{
+    public Sound[] sounds;
+    void Start()
+    {
+        foreach(Sound s in sounds)
+        {
+            s.source = gameObject.AddComponent<AudioSource>();
+            s.source.clip = s.clip;
+            s.source.loop = s.loop;
+        }
+ 
+        PlaySound("MainTheme");
+    }
+    public void PlaySound(string name)
+    {
+        foreach(Sound s in sounds)
+        {
+            if(s.name == name)
+                s.source.Play();
+        }
+    }
+ 
+    public void StopSound(string name)
+    {
+        foreach(Sound s in sounds)
+        {
+            if(s.name == name)
+                s.source.Stop();
+        }
+    }
+}
+AudioManager has functionality to hold an array of sound clips, as well as functions to play and stop the clips
+Attach sound clips to corresponding actions and functions
+Main menu
+    public void PlayGame()
+    {
+        FindObjectOfType<AudioManager>().PlaySound("Play");
+Player
+        void Update()
+    {
+       . . .
+               
+        if(controller.isGrounded)
+        {
+            if(Input.GetKeyDown(KeyCode.Space))
+            {
+                anim.SetBool("isGrounded", grounded);
+                FindObjectOfType<AudioManager>().PlaySound("Jump");
+                Jump();
+            }
+ 
+      . . .
+ 
+       if(Input.GetKeyDown(KeyCode.LeftShift) && !sliding)
+       {
+           FindObjectOfType<AudioManager>().PlaySound("Slide");
+           StartCoroutine(Slide());
+       }
+	
+. . .
+ 
+    private void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        if(hit.transform.tag == "Obstacle")
+        {
+            GameController.gameOver = true;
+            FindObjectOfType<AudioManager>().PlaySound("GameOver");
+            FindObjectOfType<AudioManager>().StopSound("MainTheme");
+        }
+    }
+ 
+    private void OnTriggerEnter(Collider other)
+    {
+        if(other.tag == "Coin")
+        {
+            forwardSpeed += 0.05f;
+            FindObjectOfType<AudioManager>().PlaySound("CoinPickUp");
+ 
+        }
+    }
+
+s
+
